@@ -19,7 +19,25 @@ class ASonicGameCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
 public:
-	ASonicGameCharacter();
+	ASonicGameCharacter(const FObjectInitializer& ObjectInitializer);
+
+	void UpdatePhysics(float DeltaTime);
+
+	void CheckGround(float DeltaTime);
+
+	void SlopeMove();
+
+	void UpdateRotation(float DeltaTime);
+
+	void StickToGround(float StickingPower);
+
+	void AddVelocity(FVector Force);
+
+	void Jump();
+
+	void StopJump();
+
+public:
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -29,11 +47,38 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* CollisionPoint;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MoveRightInput;
+
+	UPROPERTY(Category = "Sonic Character Movement", EditAnywhere, BlueprintReadWrite)
+	uint32 bUseCharacterVectors : 1;
+
+	FVector MoveInput = FVector::ZeroVector;
+
+	FVector GroundNormal;
+
+	bool bIsGrounded;
+
+	bool bWasInAir;
+
+	float LandingConversionFactor = 2.0f;
+
+	float GroundStickingFactor = 1.0f;
+
+	float GroundStickingDistance = 5.0f;
+
+	float SlopeSpeedLimit = 500.0f;
+
+	float SlopeRunAngleLimit = 0.5f;
+
+	float MoveAccelleration = 500.0f;
+
+	float MoveDecelleration = 1.3f;
+
 protected:
-
-	/** Resets HMD orientation in VR. */
-	void OnResetVR();
-
 	/** Called for forwards/backward input */
 	void MoveForward(float Value);
 
@@ -52,15 +97,11 @@ protected:
 	 */
 	void LookUpAtRate(float Rate);
 
-	/** Handler for when a touch input begins. */
-	void TouchStarted(ETouchIndex::Type FingerIndex, FVector Location);
-
-	/** Handler for when a touch input stops. */
-	void TouchStopped(ETouchIndex::Type FingerIndex, FVector Location);
-
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	virtual void Tick(float DeltaTime);
 	// End of APawn interface
 
 public:

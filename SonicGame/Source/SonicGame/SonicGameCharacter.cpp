@@ -9,13 +9,17 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
 
+#include "Kismet/KismetMathLibrary.h"
+#include "Math/UnrealMathUtility.h"
+
+#include "SonicMovementComponent.h"
+
 //////////////////////////////////////////////////////////////////////////
 // ASonicGameCharacter
 
-ASonicGameCharacter::ASonicGameCharacter()
+ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<USonicMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
-	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
 	// set our turn rates for input
 	BaseTurnRate = 45.f;
@@ -26,11 +30,7 @@ ASonicGameCharacter::ASonicGameCharacter()
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // ...at this rotation rate
-	GetCharacterMovement()->JumpZVelocity = 600.f;
-	GetCharacterMovement()->AirControl = 0.2f;
+	bUseCharacterVectors = false;
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -43,19 +43,123 @@ ASonicGameCharacter::ASonicGameCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+	CollisionPoint = CreateDefaultSubobject<USceneComponent>(TEXT("CollisionPoint"));
+	CollisionPoint->SetupAttachment(RootComponent);
+	CollisionPoint->SetRelativeLocation(FVector(0.0f, 0.0f, -55.0f));
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Input
+void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
+{
+	CheckGround(DeltaTime);
+	UpdateRotation(DeltaTime);
+}
+
+void ASonicGameCharacter::CheckGround(float DeltaTime)
+{
+	FHitResult outHit;
+
+	FVector start = GetActorLocation();
+	FVector end = start + GetActorQuat().GetAxisZ() * -60.0f; // player's current up vector
+
+	FCollisionQueryParams collisionParams;
+	collisionParams.AddIgnoredActor(this->GetOwner());
+
+	//DrawDebugLine(GetWorld(), start, end, FColor::Blue, false, -1.0f, 0, 1);
+	
+	bool isHit = GetWorld()->LineTraceSingleByChannel(outHit, start, end, ECC_Visibility, collisionParams);
+
+	if (isHit)
+	{
+		GroundNormal = outHit.Normal;
+		bIsGrounded = true;
+	}
+	else
+	{
+		bIsGrounded = false;
+		GroundNormal = FVector::ZeroVector;
+	}
+}
+
+void ASonicGameCharacter::SlopeMove()
+{
+	// Apply landing speed
+	if (bWasInAir && bIsGrounded)
+	{
+		FVector AddSpeed;
+
+		AddSpeed = GroundNormal * LandingConversionFactor;
+		StickToGround(GroundStickingFactor);
+
+		AddSpeed.Y = 0.0f;
+		AddVelocity(AddSpeed);
+		bWasInAir = false;
+	}
+
+	// Exit slope if speed is too low
+	if (GetMovementComponent()->Velocity.SquaredLength() < SlopeSpeedLimit && SlopeRunAngleLimit > GroundNormal.Z)
+	{
+		SetActorRotation(FQuat::Identity);
+		AddVelocity(GroundNormal * 3.0f);
+	}
+	else
+	{
+		StickToGround(GroundStickingFactor);
+	}
+	
+}
+
+void ASonicGameCharacter::UpdateRotation(float DeltaTime)
+{
+	if (bIsGrounded)
+	{
+		FRotator newRot = FRotationMatrix::MakeFromZX(GroundNormal, GetActorForwardVector()).Rotator();
+		SetActorRotation(FMath::RInterpTo(GetActorRotation(), newRot, DeltaTime, 10.0f));
+	}
+}
+
+void ASonicGameCharacter::StickToGround(float StickingPower)
+{
+	FHitResult outHit;
+
+	FVector start = CollisionPoint->GetComponentLocation();
+	FVector end = start + CollisionPoint->GetComponentQuat().GetAxisZ() * -GroundStickingDistance; // component's current up vector
+
+	FCollisionQueryParams collisionParams;
+	collisionParams.AddIgnoredActor(this->GetOwner());
+
+	DrawDebugLine(GetWorld(), start, end, FColor::Green, false, -1.0f, 0, 1);
+
+	bool isHit = GetWorld()->LineTraceSingleByChannel(outHit, start, end, ECC_Visibility, collisionParams);
+
+	if (isHit)
+	{
+		FVector force = outHit.Normal * StickingPower;
+		AddVelocity(force);
+	}
+}
+
+void ASonicGameCharacter::AddVelocity(FVector Force)
+{
+	GetMovementComponent()->Velocity += Force;
+}
+
+void ASonicGameCharacter::Jump()
+{
+	//GetMesh()->SetVisibility(false);
+	Super::Jump();
+}
+
+void ASonicGameCharacter::StopJump()
+{
+	Super::StopJumping();
+}
 
 void ASonicGameCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
 	// Set up gameplay key bindings
 	check(PlayerInputComponent);
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ASonicGameCharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ASonicGameCharacter::StopJumping);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &ASonicGameCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ASonicGameCharacter::MoveRight);
@@ -67,35 +171,14 @@ void ASonicGameCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAxis("TurnRate", this, &ASonicGameCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &ASonicGameCharacter::LookUpAtRate);
-
-	// handle touch devices
-	PlayerInputComponent->BindTouch(IE_Pressed, this, &ASonicGameCharacter::TouchStarted);
-	PlayerInputComponent->BindTouch(IE_Released, this, &ASonicGameCharacter::TouchStopped);
-
-	// VR headset functionality
-	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &ASonicGameCharacter::OnResetVR);
 }
 
-
-void ASonicGameCharacter::OnResetVR()
+void ASonicGameCharacter::Tick(float DeltaTime)
 {
-	// If SonicGame is added to a project via 'Add Feature' in the Unreal Editor the dependency on HeadMountedDisplay in SonicGame.Build.cs is not automatically propagated
-	// and a linker error will result.
-	// You will need to either:
-	//		Add "HeadMountedDisplay" to [YourProject].Build.cs PublicDependencyModuleNames in order to build successfully (appropriate if supporting VR).
-	// or:
-	//		Comment or delete the call to ResetOrientationAndPosition below (appropriate if not supporting VR)
-	UHeadMountedDisplayFunctionLibrary::ResetOrientationAndPosition();
-}
+	Super::Tick(DeltaTime);
 
-void ASonicGameCharacter::TouchStarted(ETouchIndex::Type FingerIndex, FVector Location)
-{
-		Jump();
-}
-
-void ASonicGameCharacter::TouchStopped(ETouchIndex::Type FingerIndex, FVector Location)
-{
-		StopJumping();
+	UpdatePhysics(DeltaTime);
+	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f, %f, %f"), MoveInput.X, MoveInput.Y, MoveInput.Z));
 }
 
 void ASonicGameCharacter::TurnAtRate(float Rate)
@@ -114,27 +197,37 @@ void ASonicGameCharacter::MoveForward(float Value)
 {
 	if ((Controller != nullptr) && (Value != 0.0f))
 	{
-		// find out which way is forward
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
-
-		// get forward vector
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		AddMovementInput(Direction, Value);
+		// Add forward movement
+		if (bUseCharacterVectors)
+		{
+			AddMovementInput(FVector::VectorPlaneProject(FRotationMatrix(GetActorRotation()).GetScaledAxis(EAxis::X), GetActorQuat().GetAxisZ()).GetSafeNormal(), Value);
+		}
+		else // Use camera vector
+		{
+			AddMovementInput(FVector::VectorPlaneProject(FRotationMatrix(GetControlRotation()).GetScaledAxis(EAxis::X), GetActorQuat().GetAxisZ()).GetSafeNormal(), Value);
+		}
 	}
 }
 
 void ASonicGameCharacter::MoveRight(float Value)
 {
+	MoveRightInput = Value;
 	if ( (Controller != nullptr) && (Value != 0.0f) )
 	{
-		// find out which way is right
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
-	
-		// get right vector 
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-		// add movement in that direction
-		AddMovementInput(Direction, Value);
+		const FVector Up = GetActorQuat().GetAxisZ(); // player's current up vector
+		FVector SideVector;
+
+		// Add side movement
+		if (bUseCharacterVectors)
+		{
+			// Get side vector (Up X Forward Vector)
+			SideVector = Up ^ FVector::VectorPlaneProject(FRotationMatrix(GetActorRotation()).GetScaledAxis(EAxis::X), Up).GetSafeNormal(); 
+			AddMovementInput(SideVector, Value);
+		}
+		else // Use camera vector
+		{
+			SideVector = Up ^ FVector::VectorPlaneProject(FRotationMatrix(GetControlRotation()).GetScaledAxis(EAxis::X), Up).GetSafeNormal();
+			AddMovementInput(SideVector, Value);
+		}
 	}
 }
