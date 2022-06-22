@@ -105,9 +105,14 @@ void ASonicGameCharacter::UpdateRotation(float DeltaTime)
 	FCollisionQueryParams collisionParams;
 	collisionParams.AddIgnoredActor(this->GetOwner());
 
-	bool isHit = GetWorld()->LineTraceSingleByChannel(outHit, start, end, ECC_Visibility, collisionParams);
+	bool isHit;
 
-	DrawDebugLine(GetWorld(), start, end, FColor::Blue, false, -1.0f, 0, 1);
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		isHit = GetWorld()->LineTraceSingleByChannel(outHit, start, end, ECC_Visibility, collisionParams);
+		DrawDebugLine(GetWorld(), start, end, FColor::Blue, false, -1.0f, 0, 1);
+	}
+	
 
 	if (isHit)
 	{
@@ -116,7 +121,7 @@ void ASonicGameCharacter::UpdateRotation(float DeltaTime)
 
 		FRotator newRot = FRotator(r.Pitch, GetActorRotation().Yaw, r2.Roll);//FRotationMatrix::MakeFromZX(outHit.ImpactNormal, GetActorForwardVector()).Rotator();
 		SetActorRotation(FMath::RInterpTo(GetActorRotation(), newRot, DeltaTime, 10.0f));
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f, %f, %f"), outHit.Normal.X, outHit.Normal.Y, outHit.Normal.Z));
+		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f, %f, %f"), outHit.Normal.X, outHit.Normal.Y, outHit.Normal.Z));
 	}
 
 }

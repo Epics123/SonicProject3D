@@ -17,6 +17,16 @@ USonicMovementComponent::USonicMovementComponent()
 {
 }
 
+FVector USonicMovementComponent::GetComponentAxisZ() const
+{
+	// Fast simplification of FQuat::RotateVector() with FVector(0,0,1).
+	const FQuat ComponentRotation = UpdatedComponent->GetComponentQuat();
+	const FVector QuatVector(ComponentRotation.X, ComponentRotation.Y, ComponentRotation.Z);
+
+	return FVector(ComponentRotation.Y * ComponentRotation.W * 2.0f, ComponentRotation.X * ComponentRotation.W * -2.0f,
+		FMath::Square(ComponentRotation.W) - QuatVector.SizeSquared()) + QuatVector * (ComponentRotation.Z * 2.0f);
+}
+
 void USonicMovementComponent::CalcVelocity(float DeltaTime, float Friction, bool bFluid, float BrakingDeceleration)
 {
 	// Do not update velocity when using root motion or when SimulatedProxy - SimulatedProxy are repped their Velocity
@@ -111,4 +121,23 @@ FVector USonicMovementComponent::MoveTowards(FVector current, FVector target, fl
 	if(magnitude <= maxDistanceDelta || magnitude == 0.0f)
 		return target;
 	return current + v / magnitude * maxDistanceDelta;
+}
+
+bool USonicMovementComponent::DoJump(bool bReplayingMoves)
+{
+	const FVector JumpDir = GetComponentAxisZ();
+
+	if (CharacterOwner && CharacterOwner->CanJump())
+	{
+		// If movement isn't constrained or the angle between plane normal and jump direction is between 60 and 120 degrees...
+		if (!bConstrainToPlane || FMath::Abs(PlaneConstraintNormal | JumpDir) < 0.5f)
+		{
+			Velocity = FVector::VectorPlaneProject(Velocity, JumpDir);
+			Velocity += JumpDir * JumpZVelocity;
+			SetMovementMode(MOVE_Falling);
+			return true;
+		}
+	}
+
+	return false;
 }
