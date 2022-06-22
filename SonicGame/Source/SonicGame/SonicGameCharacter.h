@@ -25,11 +25,8 @@ public:
 
 	void CheckGround(float DeltaTime);
 
-	void SlopeMove();
-
 	void UpdateRotation(float DeltaTime);
 
-	void StickToGround(float StickingPower);
 
 	void AddVelocity(FVector Force);
 
@@ -51,7 +48,7 @@ public:
 	USceneComponent* CollisionPoint;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float MoveRightInput;
+	USoundBase* JumpSound;
 
 	UPROPERTY(Category = "Sonic Character Movement", EditAnywhere, BlueprintReadWrite)
 	uint32 bUseCharacterVectors : 1;

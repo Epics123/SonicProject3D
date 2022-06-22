@@ -11,6 +11,7 @@
 
 #include "Kismet/KismetMathLibrary.h"
 #include "Math/UnrealMathUtility.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "SonicMovementComponent.h"
 
@@ -50,7 +51,7 @@ ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitial
 
 void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
 {
-	CheckGround(DeltaTime);
+	//CheckGround(DeltaTime);
 	UpdateRotation(DeltaTime);
 }
 
@@ -80,63 +81,46 @@ void ASonicGameCharacter::CheckGround(float DeltaTime)
 	}
 }
 
-void ASonicGameCharacter::SlopeMove()
-{
-	// Apply landing speed
-	if (bWasInAir && bIsGrounded)
-	{
-		FVector AddSpeed;
-
-		AddSpeed = GroundNormal * LandingConversionFactor;
-		StickToGround(GroundStickingFactor);
-
-		AddSpeed.Y = 0.0f;
-		AddVelocity(AddSpeed);
-		bWasInAir = false;
-	}
-
-	// Exit slope if speed is too low
-	if (GetMovementComponent()->Velocity.SquaredLength() < SlopeSpeedLimit && SlopeRunAngleLimit > GroundNormal.Z)
-	{
-		SetActorRotation(FQuat::Identity);
-		AddVelocity(GroundNormal * 3.0f);
-	}
-	else
-	{
-		StickToGround(GroundStickingFactor);
-	}
-	
-}
-
 void ASonicGameCharacter::UpdateRotation(float DeltaTime)
 {
-	if (bIsGrounded)
+	/*if (bIsGrounded)
 	{
 		FRotator newRot = FRotationMatrix::MakeFromZX(GroundNormal, GetActorForwardVector()).Rotator();
 		SetActorRotation(FMath::RInterpTo(GetActorRotation(), newRot, DeltaTime, 10.0f));
-	}
-}
+	}*/
+	float moveForward = GetInputAxisValue("MoveForward");
+	float moveRight = GetInputAxisValue("MoveRight");
 
-void ASonicGameCharacter::StickToGround(float StickingPower)
-{
 	FHitResult outHit;
 
-	FVector start = CollisionPoint->GetComponentLocation();
-	FVector end = start + CollisionPoint->GetComponentQuat().GetAxisZ() * -GroundStickingDistance; // component's current up vector
+	FVector forward = GetActorForwardVector();// * moveForward;
+	FVector right = GetActorRightVector(); //* moveRight;
+	FVector up = GetActorUpVector() * -75.0f;
+
+	FVector movementDir = forward * 150.0f;
+
+	FVector start = GetActorLocation();
+	FVector end = start + movementDir + up;
 
 	FCollisionQueryParams collisionParams;
 	collisionParams.AddIgnoredActor(this->GetOwner());
 
-	DrawDebugLine(GetWorld(), start, end, FColor::Green, false, -1.0f, 0, 1);
-
 	bool isHit = GetWorld()->LineTraceSingleByChannel(outHit, start, end, ECC_Visibility, collisionParams);
+
+	DrawDebugLine(GetWorld(), start, end, FColor::Blue, false, -1.0f, 0, 1);
 
 	if (isHit)
 	{
-		FVector force = outHit.Normal * StickingPower;
-		AddVelocity(force);
+		FRotator r = FRotationMatrix::MakeFromYZ(right, outHit.ImpactNormal).Rotator();
+		FRotator r2 = FRotationMatrix::MakeFromXZ(forward, outHit.ImpactNormal).Rotator();
+
+		FRotator newRot = FRotator(r.Pitch, GetActorRotation().Yaw, r2.Roll);//FRotationMatrix::MakeFromZX(outHit.ImpactNormal, GetActorForwardVector()).Rotator();
+		SetActorRotation(FMath::RInterpTo(GetActorRotation(), newRot, DeltaTime, 10.0f));
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f, %f, %f"), outHit.Normal.X, outHit.Normal.Y, outHit.Normal.Z));
 	}
+
 }
+
 
 void ASonicGameCharacter::AddVelocity(FVector Force)
 {
@@ -145,7 +129,13 @@ void ASonicGameCharacter::AddVelocity(FVector Force)
 
 void ASonicGameCharacter::Jump()
 {
-	//GetMesh()->SetVisibility(false);
+	
+	if (!GetMovementComponent()->IsFalling())
+	{
+		if(JumpSound)
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), JumpSound, GetActorLocation());
+	}
+
 	Super::Jump();
 }
 
@@ -211,7 +201,6 @@ void ASonicGameCharacter::MoveForward(float Value)
 
 void ASonicGameCharacter::MoveRight(float Value)
 {
-	MoveRightInput = Value;
 	if ( (Controller != nullptr) && (Value != 0.0f) )
 	{
 		const FVector Up = GetActorQuat().GetAxisZ(); // player's current up vector
