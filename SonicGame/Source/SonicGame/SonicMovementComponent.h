@@ -18,6 +18,7 @@ public:
 	USonicMovementComponent();
 	FVector GetComponentAxisZ() const;
 	
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float TangentialDrag;
 
@@ -31,6 +32,8 @@ public:
 	 * @return	True if the jump was triggered successfully.
 	 */
 	virtual bool DoJump(bool bReplayingMoves) override;
+
+	//virtual bool IsWalkable(const FHitResult& Hit) const override;
 
 private:
 	FVector MoveTowards(FVector current, FVector target, float maxDistanceDelta);

@@ -15,6 +15,7 @@
 
 USonicMovementComponent::USonicMovementComponent()
 {
+	SetWalkableFloorAngle(360.0f);
 }
 
 FVector USonicMovementComponent::GetComponentAxisZ() const
@@ -113,6 +114,7 @@ void USonicMovementComponent::CalcVelocity(float DeltaTime, float Friction, bool
 		CalcAvoidanceVelocity(DeltaTime);
 	}
 }
+
 
 FVector USonicMovementComponent::MoveTowards(FVector current, FVector target, float maxDistanceDelta)
 {

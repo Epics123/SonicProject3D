@@ -27,12 +27,19 @@ public:
 
 	void UpdateRotation(float DeltaTime);
 
+	void DoHomingAttack();
 
 	void AddVelocity(FVector Force);
 
 	void Jump();
 
 	void StopJump();
+
+	/**
+	 * Finds the closest enemy to the player.
+	 * @param radius	Search radius
+	 */
+	class AEnemy* GetNearestEnemy(float radius);
 
 public:
 
@@ -53,6 +60,24 @@ public:
 	UPROPERTY(Category = "Sonic Character Movement", EditAnywhere, BlueprintReadWrite)
 	uint32 bUseCharacterVectors : 1;
 
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	float HomingRadius = 500.0f;
+
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	float HomingSpeed = 10.0f;
+
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	float MinHomingThreshold = 100.0f;
+
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	float HomingUpForce = 700.0f;
+
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	bool bIsHoming = false;
+
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	AEnemy* HomingTarget;
+
 	FVector MoveInput = FVector::ZeroVector;
 
 	FVector GroundNormal;
@@ -60,6 +85,8 @@ public:
 	bool bIsGrounded;
 
 	bool bWasInAir;
+
+	bool bCanMove = true;
 
 	float LandingConversionFactor = 2.0f;
 

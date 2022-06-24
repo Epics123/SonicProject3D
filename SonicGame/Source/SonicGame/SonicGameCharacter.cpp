@@ -12,6 +12,9 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Math/UnrealMathUtility.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
+
+#include "Enemy.h"
 
 #include "SonicMovementComponent.h"
 
@@ -53,6 +56,14 @@ void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
 {
 	//CheckGround(DeltaTime);
 	UpdateRotation(DeltaTime);
+
+	// Check for the closest enemy while player is in the air
+	if(GetMovementComponent()->IsFalling())
+		HomingTarget = GetNearestEnemy(HomingRadius);
+	
+	// Are we currently performing a homing attack?
+	if(bIsHoming)
+		DoHomingAttack();
 }
 
 void ASonicGameCharacter::CheckGround(float DeltaTime)
@@ -83,47 +94,61 @@ void ASonicGameCharacter::CheckGround(float DeltaTime)
 
 void ASonicGameCharacter::UpdateRotation(float DeltaTime)
 {
-	/*if (bIsGrounded)
-	{
-		FRotator newRot = FRotationMatrix::MakeFromZX(GroundNormal, GetActorForwardVector()).Rotator();
-		SetActorRotation(FMath::RInterpTo(GetActorRotation(), newRot, DeltaTime, 10.0f));
-	}*/
-	float moveForward = GetInputAxisValue("MoveForward");
-	float moveRight = GetInputAxisValue("MoveRight");
-
-	FHitResult outHit;
+	//float moveForward = GetInputAxisValue("MoveForward");
+	//float moveRight = GetInputAxisValue("MoveRight");
 
 	FVector forward = GetActorForwardVector();// * moveForward;
 	FVector right = GetActorRightVector(); //* moveRight;
-	FVector up = GetActorUpVector() * -75.0f;
 
-	FVector movementDir = forward * 150.0f;
-
-	FVector start = GetActorLocation();
-	FVector end = start + movementDir + up;
-
-	FCollisionQueryParams collisionParams;
-	collisionParams.AddIgnoredActor(this->GetOwner());
-
-	bool isHit;
 
 	if (!GetCharacterMovement()->IsFalling())
 	{
-		isHit = GetWorld()->LineTraceSingleByChannel(outHit, start, end, ECC_Visibility, collisionParams);
-		DrawDebugLine(GetWorld(), start, end, FColor::Blue, false, -1.0f, 0, 1);
-	}
-	
 
-	if (isHit)
+		FHitResult floorHit = GetCharacterMovement()->CurrentFloor.HitResult;
+
+		float f = floorHit.ImpactNormal.Dot(FVector(0.0f, 0.0f, 1.0f));
+		float theta = FMath::RadiansToDegrees(FMath::Acos(f));
+
+		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f"), theta));
+
+		UCapsuleComponent* capsule = GetCapsuleComponent();
+
+		FRotator r = UKismetMathLibrary::MakeRotationFromAxes(capsule->GetForwardVector(), capsule->GetRightVector(), floorHit.ImpactNormal);
+		FRotator r2 = FRotationMatrix::MakeFromYZ(capsule->GetRightVector(), floorHit.ImpactNormal).Rotator();
+
+		FRotator newRot = FRotator(r2.Pitch, capsule->GetComponentRotation().Yaw, r.Roll);
+
+		capsule->SetWorldRotation(FMath::RInterpTo(capsule->GetComponentRotation(), newRot, DeltaTime, 10.0f));
+	}
+	else
 	{
-		FRotator r = FRotationMatrix::MakeFromYZ(right, outHit.ImpactNormal).Rotator();
-		FRotator r2 = FRotationMatrix::MakeFromXZ(forward, outHit.ImpactNormal).Rotator();
-
-		FRotator newRot = FRotator(r.Pitch, GetActorRotation().Yaw, r2.Roll);//FRotationMatrix::MakeFromZX(outHit.ImpactNormal, GetActorForwardVector()).Rotator();
-		SetActorRotation(FMath::RInterpTo(GetActorRotation(), newRot, DeltaTime, 10.0f));
-		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f, %f, %f"), outHit.Normal.X, outHit.Normal.Y, outHit.Normal.Z));
+		UCapsuleComponent* capsule = GetCapsuleComponent();
+		capsule->SetWorldRotation(FMath::RInterpTo(capsule->GetComponentRotation(), FRotator(0.0f, capsule->GetComponentRotation().Yaw, 0.0f), DeltaTime, 10.0f));
 	}
+}
 
+void ASonicGameCharacter::DoHomingAttack()
+{
+	if (HomingTarget)
+	{
+		FVector targetLoc = HomingTarget->GetActorLocation();
+
+		if (FVector::Dist(GetActorLocation(), targetLoc) <= MinHomingThreshold)
+		{
+			bIsHoming = false;
+			bCanMove = true;
+			GetCharacterMovement()->GravityScale = 1.0f;
+
+			HomingTarget->Destroy();
+			HomingTarget = nullptr;
+
+			LaunchCharacter(FVector(0.0f, 0.0f, 1.0f) * HomingUpForce, false, true);
+
+			return;
+		}
+
+		SetActorLocation(UKismetMathLibrary::VInterpTo(GetActorLocation(), targetLoc, GetWorld()->DeltaTimeSeconds, HomingSpeed));
+	}
 }
 
 
@@ -141,12 +166,76 @@ void ASonicGameCharacter::Jump()
 			UGameplayStatics::PlaySoundAtLocation(GetWorld(), JumpSound, GetActorLocation());
 	}
 
+	if (!bIsHoming && GetMovementComponent()->IsFalling())
+	{
+		if (HomingTarget)
+		{
+			bIsHoming = true;
+			bCanMove = false;
+			GetCharacterMovement()->GravityScale = 0.0f;
+			GetCharacterMovement()->StopMovementImmediately();
+
+			SetActorRotation(UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), HomingTarget->GetActorLocation()));
+		}
+		else
+		{
+			LaunchCharacter(GetActorForwardVector() * HomingUpForce * 2.0f, true, false);
+		}
+		
+	}
+
 	Super::Jump();
 }
 
 void ASonicGameCharacter::StopJump()
 {
 	Super::StopJumping();
+}
+
+AEnemy* ASonicGameCharacter::GetNearestEnemy(float radius)
+{
+	const FVector start = GetActorLocation();
+	const FVector end = GetActorLocation();
+	
+	TArray<AActor*> IgnoreActors;
+	IgnoreActors.Add(GetOwner());
+
+	TArray<FHitResult> HitArray;
+
+	ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECC_Pawn);
+
+	bool hit = UKismetSystemLibrary::SphereTraceMulti(GetWorld(), start, end, radius, TraceChannel, false, IgnoreActors, EDrawDebugTrace::ForOneFrame, HitArray, true);
+
+	float shortestDistSq = radius * radius;
+	AEnemy* closestEnemy = nullptr;
+
+	// Did sphere trace hit anything?
+	if (hit)
+	{
+		// loop through hit results
+		for (FHitResult HitResult : HitArray)
+		{
+			// Validate enemy
+			AEnemy* enemy = Cast<AEnemy>(HitResult.GetActor());
+			if (enemy != nullptr)
+			{
+				float distSq = FVector::DistSquared(GetActorLocation(), enemy->GetActorLocation()); // get quared distance between player and current enemy
+
+				// update closest enemy and distance if current enemy is closer than the previous closest enemy
+				if (distSq < shortestDistSq)
+				{
+					shortestDistSq = distSq;
+					closestEnemy = enemy;
+				}
+			}
+		}
+	}
+
+	// DEBUG
+	if(closestEnemy)
+		DrawDebugLine(GetWorld(), GetActorLocation(), closestEnemy->GetActorLocation(), FColor::Blue);
+
+	return closestEnemy;
 }
 
 void ASonicGameCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -190,7 +279,7 @@ void ASonicGameCharacter::LookUpAtRate(float Rate)
 
 void ASonicGameCharacter::MoveForward(float Value)
 {
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if ((Controller != nullptr) && (Value != 0.0f) && bCanMove)
 	{
 		// Add forward movement
 		if (bUseCharacterVectors)
@@ -206,7 +295,7 @@ void ASonicGameCharacter::MoveForward(float Value)
 
 void ASonicGameCharacter::MoveRight(float Value)
 {
-	if ( (Controller != nullptr) && (Value != 0.0f) )
+	if ( (Controller != nullptr) && (Value != 0.0f) && bCanMove )
 	{
 		const FVector Up = GetActorQuat().GetAxisZ(); // player's current up vector
 		FVector SideVector;
