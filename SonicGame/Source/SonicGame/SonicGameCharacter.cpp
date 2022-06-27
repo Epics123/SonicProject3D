@@ -60,6 +60,8 @@ void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
 	// Check for the closest enemy while player is in the air
 	if(GetMovementComponent()->IsFalling())
 		HomingTarget = GetNearestEnemy(HomingRadius);
+	else
+		bCanDoHomingAttack = true;
 	
 	// Are we currently performing a homing attack?
 	if(bIsHoming)
@@ -137,6 +139,7 @@ void ASonicGameCharacter::DoHomingAttack()
 		{
 			bIsHoming = false;
 			bCanMove = true;
+			bCanDoHomingAttack = true;
 			GetCharacterMovement()->GravityScale = 1.0f;
 
 			HomingTarget->Destroy();
@@ -147,7 +150,21 @@ void ASonicGameCharacter::DoHomingAttack()
 			return;
 		}
 
-		SetActorLocation(UKismetMathLibrary::VInterpTo(GetActorLocation(), targetLoc, GetWorld()->DeltaTimeSeconds, HomingSpeed));
+		FHitResult sweepHit;
+		SetActorLocation(UKismetMathLibrary::VInterpTo(GetActorLocation(), targetLoc, GetWorld()->DeltaTimeSeconds, HomingSpeed), true, &sweepHit);
+
+		// Did we hit something before making it to the target?
+		if (sweepHit.bBlockingHit)
+		{
+			bIsHoming = false;
+			bCanMove = true;
+			bCanDoHomingAttack = true;
+			GetCharacterMovement()->GravityScale = 1.0f;
+
+			HomingTarget = nullptr;
+
+			return;
+		}
 	}
 }
 
@@ -168,7 +185,7 @@ void ASonicGameCharacter::Jump()
 
 	if (!bIsHoming && GetMovementComponent()->IsFalling())
 	{
-		if (HomingTarget)
+		if (HomingTarget && HomingViewAngle <= 90.0f)
 		{
 			bIsHoming = true;
 			bCanMove = false;
@@ -176,10 +193,18 @@ void ASonicGameCharacter::Jump()
 			GetCharacterMovement()->StopMovementImmediately();
 
 			SetActorRotation(UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), HomingTarget->GetActorLocation()));
+
+			if(HomingSound)
+				UGameplayStatics::PlaySoundAtLocation(GetWorld(), HomingSound, GetActorLocation());
 		}
-		else
+		else if(bCanDoHomingAttack)
 		{
-			LaunchCharacter(GetActorForwardVector() * HomingUpForce * 2.0f, true, false);
+			bCanDoHomingAttack = false;
+			GetCharacterMovement()->StopMovementImmediately();
+			LaunchCharacter(GetActorForwardVector() * HomingUpForce * 6.0f, true, false);
+
+			if (HomingSound)
+				UGameplayStatics::PlaySoundAtLocation(GetWorld(), HomingSound, GetActorLocation());
 		}
 		
 	}
@@ -232,8 +257,15 @@ AEnemy* ASonicGameCharacter::GetNearestEnemy(float radius)
 	}
 
 	// DEBUG
-	if(closestEnemy)
+	if (closestEnemy)
+	{
 		DrawDebugLine(GetWorld(), GetActorLocation(), closestEnemy->GetActorLocation(), FColor::Blue);
+		FVector dir = closestEnemy->GetActorLocation() - GetActorLocation();
+		HomingViewAngle = FVector::DotProduct(GetActorForwardVector(), dir.GetSafeNormal());
+		//HomingViewAngle = FVector::DotProduct(FollowCamera->GetForwardVector(), dir.GetSafeNormal());
+		HomingViewAngle = FMath::RadiansToDegrees(FMath::Acos(HomingViewAngle));
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f"), HomingViewAngle));
+	}
 
 	return closestEnemy;
 }

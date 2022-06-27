@@ -78,6 +78,13 @@ public:
 	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
 	AEnemy* HomingTarget;
 
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	USoundBase* HomingSound;
+
+	bool bCanDoHomingAttack = true;
+
+	float HomingViewAngle;
+
 	FVector MoveInput = FVector::ZeroVector;
 
 	FVector GroundNormal;
