@@ -39,7 +39,13 @@ public:
 	 * Finds the closest enemy to the player.
 	 * @param radius	Search radius
 	 */
-	class AEnemy* GetNearestEnemy(float radius);
+	AActor* GetNearestHomingTarget(float radius);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowHomingIcon(AActor* Target);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void HideHomingIcon();
 
 public:
 
@@ -73,13 +79,19 @@ public:
 	float HomingUpForce = 700.0f;
 
 	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	float MinHomingViewAngle = 95.0f;
+
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
 	bool bIsHoming = false;
 
 	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
-	AEnemy* HomingTarget;
+	AActor* HomingTarget;
 
 	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
 	USoundBase* HomingSound;
+
+	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
+	USoundBase* LockOnSound;
 
 	bool bCanDoHomingAttack = true;
 

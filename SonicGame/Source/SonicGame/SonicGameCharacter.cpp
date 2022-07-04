@@ -58,10 +58,17 @@ void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
 	UpdateRotation(DeltaTime);
 
 	// Check for the closest enemy while player is in the air
-	if(GetMovementComponent()->IsFalling())
-		HomingTarget = GetNearestEnemy(HomingRadius);
+	if (GetMovementComponent()->IsFalling())
+	{
+		HomingTarget = GetNearestHomingTarget(HomingRadius);
+		if(HomingTarget && HomingViewAngle <= MinHomingViewAngle)
+			ShowHomingIcon(HomingTarget);
+	}
 	else
+	{
+		HideHomingIcon();
 		bCanDoHomingAttack = true;
+	}
 	
 	// Are we currently performing a homing attack?
 	if(bIsHoming)
@@ -142,10 +149,15 @@ void ASonicGameCharacter::DoHomingAttack()
 			bCanDoHomingAttack = true;
 			GetCharacterMovement()->GravityScale = 1.0f;
 
-			HomingTarget->Destroy();
-			HomingTarget = nullptr;
+			if (Cast<AEnemy>(HomingTarget))
+			{
+				HomingTarget->Destroy();
+				HomingTarget = nullptr;
 
-			LaunchCharacter(FVector(0.0f, 0.0f, 1.0f) * HomingUpForce, false, true);
+				LaunchCharacter(FVector(0.0f, 0.0f, 1.0f) * HomingUpForce, false, true);
+			}
+			
+			HideHomingIcon();
 
 			return;
 		}
@@ -162,6 +174,8 @@ void ASonicGameCharacter::DoHomingAttack()
 			GetCharacterMovement()->GravityScale = 1.0f;
 
 			HomingTarget = nullptr;
+
+			HideHomingIcon();
 
 			return;
 		}
@@ -185,7 +199,7 @@ void ASonicGameCharacter::Jump()
 
 	if (!bIsHoming && GetMovementComponent()->IsFalling())
 	{
-		if (HomingTarget && HomingViewAngle <= 90.0f)
+		if (HomingTarget && HomingViewAngle <= MinHomingViewAngle)
 		{
 			bIsHoming = true;
 			bCanMove = false;
@@ -217,7 +231,7 @@ void ASonicGameCharacter::StopJump()
 	Super::StopJumping();
 }
 
-AEnemy* ASonicGameCharacter::GetNearestEnemy(float radius)
+AActor* ASonicGameCharacter::GetNearestHomingTarget(float radius)
 {
 	const FVector start = GetActorLocation();
 	const FVector end = GetActorLocation();
@@ -229,7 +243,7 @@ AEnemy* ASonicGameCharacter::GetNearestEnemy(float radius)
 
 	ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECC_Pawn);
 
-	bool hit = UKismetSystemLibrary::SphereTraceMulti(GetWorld(), start, end, radius, TraceChannel, false, IgnoreActors, EDrawDebugTrace::ForOneFrame, HitArray, true);
+	bool hit = UKismetSystemLibrary::SphereTraceMulti(GetWorld(), start, end, radius, TraceChannel, false, IgnoreActors, EDrawDebugTrace::None, HitArray, true);
 
 	float shortestDistSq = radius * radius;
 	AEnemy* closestEnemy = nullptr;
@@ -244,7 +258,7 @@ AEnemy* ASonicGameCharacter::GetNearestEnemy(float radius)
 			AEnemy* enemy = Cast<AEnemy>(HitResult.GetActor());
 			if (enemy != nullptr)
 			{
-				float distSq = FVector::DistSquared(GetActorLocation(), enemy->GetActorLocation()); // get quared distance between player and current enemy
+				float distSq = FVector::DistSquared(GetActorLocation(), enemy->GetActorLocation()); // get squared distance between player and current enemy
 
 				// update closest enemy and distance if current enemy is closer than the previous closest enemy
 				if (distSq < shortestDistSq)
@@ -256,15 +270,20 @@ AEnemy* ASonicGameCharacter::GetNearestEnemy(float radius)
 		}
 	}
 
-	// DEBUG
 	if (closestEnemy)
 	{
-		DrawDebugLine(GetWorld(), GetActorLocation(), closestEnemy->GetActorLocation(), FColor::Blue);
+		//DrawDebugLine(GetWorld(), GetActorLocation(), closestEnemy->GetActorLocation(), FColor::Blue);
 		FVector dir = closestEnemy->GetActorLocation() - GetActorLocation();
 		HomingViewAngle = FVector::DotProduct(GetActorForwardVector(), dir.GetSafeNormal());
 		//HomingViewAngle = FVector::DotProduct(FollowCamera->GetForwardVector(), dir.GetSafeNormal());
 		HomingViewAngle = FMath::RadiansToDegrees(FMath::Acos(HomingViewAngle));
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f"), HomingViewAngle));
+		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f"), HomingViewAngle));
+
+		if (HomingTarget && HomingTarget != closestEnemy && HomingViewAngle <= MinHomingViewAngle)
+		{
+			HideHomingIcon();
+			ShowHomingIcon(closestEnemy);
+		}
 	}
 
 	return closestEnemy;
