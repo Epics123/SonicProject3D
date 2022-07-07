@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Components/SplineComponent.h"
+#include "Components/AudioComponent.h"
 #include "SonicGameCharacter.generated.h"
 
 UCLASS(config=Game)
@@ -61,11 +63,15 @@ public:
 	USceneComponent* CollisionPoint;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAudioComponent* SoundEffectComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USoundBase* JumpSound;
 
 	UPROPERTY(Category = "Sonic Character Movement", EditAnywhere, BlueprintReadWrite)
 	uint32 bUseCharacterVectors : 1;
 
+	// --- Homing Attack --------------------------------------------------
 	UPROPERTY(Category = "Homing Attack", EditAnywhere, BlueprintReadWrite)
 	float HomingRadius = 500.0f;
 
@@ -96,6 +102,30 @@ public:
 	bool bCanDoHomingAttack = true;
 
 	float HomingViewAngle;
+
+	//--- Rail Grinding --------------------------------------------------
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	bool bIsGrinding;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	FVector RailCollisionPoint;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	float ClosestRailPointDistance;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	float RailOffset = 70.0f;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	float RailStartDistance;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	bool bBackwardsGrind;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	USplineComponent* CurrentRail;
+
+	//////////////////////////////////////////////////////////////////////
 
 	FVector MoveInput = FVector::ZeroVector;
 

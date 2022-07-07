@@ -50,6 +50,9 @@ ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitial
 	CollisionPoint = CreateDefaultSubobject<USceneComponent>(TEXT("CollisionPoint"));
 	CollisionPoint->SetupAttachment(RootComponent);
 	CollisionPoint->SetRelativeLocation(FVector(0.0f, 0.0f, -55.0f));
+
+	SoundEffectComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("SoundEffectComponent"));
+	SoundEffectComponent->SetupAttachment(RootComponent);
 }
 
 void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
