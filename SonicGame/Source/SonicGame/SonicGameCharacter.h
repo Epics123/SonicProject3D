@@ -108,6 +108,9 @@ public:
 	bool bIsGrinding;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	bool bGrindJump;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	FVector RailCollisionPoint;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)

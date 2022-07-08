@@ -192,15 +192,18 @@ void ASonicGameCharacter::AddVelocity(FVector Force)
 }
 
 void ASonicGameCharacter::Jump()
-{
-	
+{	
 	if (!GetMovementComponent()->IsFalling())
 	{
 		if(JumpSound)
 			UGameplayStatics::PlaySoundAtLocation(GetWorld(), JumpSound, GetActorLocation());
 	}
 
-	if (!bIsHoming && GetMovementComponent()->IsFalling())
+	if (bIsGrinding)
+	{
+		bGrindJump = true;
+	}
+	else if (!bIsHoming && GetMovementComponent()->IsFalling())
 	{
 		if (HomingTarget && HomingViewAngle <= MinHomingViewAngle)
 		{
