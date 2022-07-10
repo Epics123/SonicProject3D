@@ -193,7 +193,7 @@ void ASonicGameCharacter::AddVelocity(FVector Force)
 
 void ASonicGameCharacter::Jump()
 {	
-	if (!GetMovementComponent()->IsFalling())
+	if (!GetMovementComponent()->IsFalling() && !bIsGrinding)
 	{
 		if(JumpSound)
 			UGameplayStatics::PlaySoundAtLocation(GetWorld(), JumpSound, GetActorLocation());

@@ -126,7 +126,16 @@ public:
 	bool bBackwardsGrind;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	float RailJumpHeight = 300.0f;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	USplineComponent* CurrentRail;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	USplineComponent* LeftRail;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	USplineComponent* RightRail;
 
 	//////////////////////////////////////////////////////////////////////
 
