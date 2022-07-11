@@ -129,6 +129,9 @@ public:
 	FVector RightRailCollisionPoint;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	float GrindLeanDirection;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	float ClosestRailPointDistance;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
