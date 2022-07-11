@@ -111,7 +111,22 @@ public:
 	bool bGrindJump;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	bool bLeftRailSwitch;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	bool bRightRailSwitch;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	bool bCanSwitchRails = true;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	FVector RailCollisionPoint;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	FVector LeftRailCollisionPoint;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	FVector RightRailCollisionPoint;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	float ClosestRailPointDistance;
