@@ -75,43 +75,46 @@ void USonicMovementComponent::CalcVelocity(float DeltaTime, float Friction, bool
 	const bool bZeroAcceleration = Acceleration.IsZero();
 	const bool bVelocityOverMax = false;
 
-	// Only apply braking if there is no acceleration, or we are over our max speed and need to slow down to it.
-	if ((bZeroAcceleration && bZeroRequestedAcceleration) || bVelocityOverMax)
+	if (bIgnoreGrindingDecel)
 	{
-		const FVector OldVelocity = Velocity;
-
-		const float ActualBrakingFriction = (bUseSeparateBrakingFriction ? BrakingFriction : Friction);
-		ApplyVelocityBraking(DeltaTime, ActualBrakingFriction, BrakingDeceleration);
-
-		// Don't allow braking to lower us below max speed if we started above it.
-		if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
+		// Only apply braking if there is no acceleration, or we are over our max speed and need to slow down to it.
+		if ((bZeroAcceleration && bZeroRequestedAcceleration) || bVelocityOverMax)
 		{
-			Velocity = OldVelocity.GetSafeNormal() * MaxSpeed;
+			const FVector OldVelocity = Velocity;
+
+			const float ActualBrakingFriction = (bUseSeparateBrakingFriction ? BrakingFriction : Friction);
+			ApplyVelocityBraking(DeltaTime, ActualBrakingFriction, BrakingDeceleration);
+
+			// Don't allow braking to lower us below max speed if we started above it.
+			if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
+			{
+				Velocity = OldVelocity.GetSafeNormal() * MaxSpeed;
+			}
 		}
-	}
-	else if (!bZeroAcceleration)
-	{
-		// Friction affects our ability to change direction. This is only done for input acceleration, not path following.
-		const FVector AccelDir = Acceleration.GetSafeNormal();
-		const float VelSize = Velocity.Size();
-		Velocity = Velocity - (Velocity - AccelDir * VelSize) * FMath::Min(DeltaTime * Friction, 1.f);
-	}
+		else if (!bZeroAcceleration)
+		{
+			// Friction affects our ability to change direction. This is only done for input acceleration, not path following.
+			const FVector AccelDir = Acceleration.GetSafeNormal();
+			const float VelSize = Velocity.Size();
+			Velocity = Velocity - (Velocity - AccelDir * VelSize) * FMath::Min(DeltaTime * Friction, 1.f);
+		}
 
-	// Apply fluid friction
-	if (bFluid)
-	{
-		Velocity = Velocity * (1.f - FMath::Min(Friction * DeltaTime, 1.f));
-	}
+		// Apply fluid friction
+		if (bFluid)
+		{
+			Velocity = Velocity * (1.f - FMath::Min(Friction * DeltaTime, 1.f));
+		}
 
-	// Apply acceleration
-	const float NewMaxSpeed = (IsExceedingMaxSpeed(MaxSpeed)) ? Velocity.Size() : MaxSpeed;
-	Velocity += Acceleration * DeltaTime;
-	Velocity += RequestedAcceleration * DeltaTime;
-	Velocity = Velocity.GetClampedToMaxSize(NewMaxSpeed);
+		// Apply acceleration
+		const float NewMaxSpeed = (IsExceedingMaxSpeed(MaxSpeed)) ? Velocity.Size() : MaxSpeed;
+		Velocity += Acceleration * DeltaTime;
+		Velocity += RequestedAcceleration * DeltaTime;
+		Velocity = Velocity.GetClampedToMaxSize(NewMaxSpeed);
 
-	if (bUseRVOAvoidance)
-	{
-		CalcAvoidanceVelocity(DeltaTime);
+		if (bUseRVOAvoidance)
+		{
+			CalcAvoidanceVelocity(DeltaTime);
+		}
 	}
 }
 

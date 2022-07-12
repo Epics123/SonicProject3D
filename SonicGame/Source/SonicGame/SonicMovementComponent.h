@@ -16,11 +16,15 @@ class SONICGAME_API USonicMovementComponent : public UCharacterMovementComponent
 
 public:
 	USonicMovementComponent();
+
 	FVector GetComponentAxisZ() const;
 	
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float TangentialDrag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIgnoreGrindingDecel = true;
 
 public:
 	virtual void CalcVelocity(float DeltaTime, float Friction, bool bFluid, float BrakingDeceleration) override;
