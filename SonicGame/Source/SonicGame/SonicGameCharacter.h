@@ -122,11 +122,17 @@ public:
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	FVector RailCollisionPoint;
 
-	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
 	FVector LeftRailCollisionPoint;
 
-	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
+	FVector LeftRailTargetPoint;
+
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
 	FVector RightRailCollisionPoint;
+
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
+	FVector RightRailTargetPoint;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	float GrindLeanDirection;
@@ -165,6 +171,7 @@ public:
 
 	bool bWasInAir;
 
+	UPROPERTY(BlueprintReadWrite)
 	bool bCanMove = true;
 
 	float LandingConversionFactor = 2.0f;

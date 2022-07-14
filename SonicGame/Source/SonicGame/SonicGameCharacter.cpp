@@ -352,7 +352,7 @@ void ASonicGameCharacter::MoveForward(float Value)
 
 void ASonicGameCharacter::MoveRight(float Value)
 {
-	if ( (Controller != nullptr) && (Value != 0.0f) && bCanMove && !bIsGrinding)
+	if ( (Controller != nullptr) && (Value != 0.0f) && bCanMove && !bIsGrinding && (GetCharacterMovement()->MovementMode != MOVE_Flying))
 	{
 		const FVector Up = GetActorQuat().GetAxisZ(); // player's current up vector
 		FVector SideVector;
