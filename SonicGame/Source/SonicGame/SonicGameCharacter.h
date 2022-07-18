@@ -33,6 +33,10 @@ public:
 
 	void AddVelocity(FVector Force);
 
+	void SetVelocity(FVector Velocity, bool bHorizontalOverride, bool bVerticalOverride, bool bUseAsMultiplier = false);
+
+	FVector GetRailVelocityInDirection(FVector Velocity, bool bIsBackwards);
+
 	void Jump();
 
 	void StopJump();
@@ -42,6 +46,16 @@ public:
 	 * @param radius	Search radius
 	 */
 	AActor* GetNearestHomingTarget(float radius);
+
+	UFUNCTION(BlueprintCallable)
+	void DetectGrindRail();
+
+	UFUNCTION(BlueprintCallable)
+	void DetectSideRail();
+
+	void GrindOnRail(float StartDistance, USplineComponent* Rail);
+
+	float GetClosestDistanceToLocation(USplineComponent* Spline, FVector Location, float ErrorTolerance);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void ShowHomingIcon(AActor* Target);
@@ -153,13 +167,19 @@ public:
 	float RailJumpHeight = 300.0f;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	float MaxRailSpeed = 2000.0f;
+
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
 	USplineComponent* CurrentRail;
 
-	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
 	USplineComponent* LeftRail;
 
-	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
 	USplineComponent* RightRail;
+
+	UPROPERTY(Category = "Rail Grinding", BlueprintReadWrite)
+	USceneComponent* SparkEffectPoint;
 
 	//////////////////////////////////////////////////////////////////////
 

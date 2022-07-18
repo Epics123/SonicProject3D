@@ -15,6 +15,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 #include "Enemy.h"
+#include "GrindRail.h"
 
 #include "SonicMovementComponent.h"
 
@@ -53,6 +54,9 @@ ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitial
 
 	SoundEffectComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("SoundEffectComponent"));
 	SoundEffectComponent->SetupAttachment(RootComponent);
+
+	SparkEffectPoint = CreateAbstractDefaultSubobject<USceneComponent>(TEXT("SparkEffectPoint"));
+	SparkEffectPoint->SetupAttachment(RootComponent);
 }
 
 void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
@@ -191,6 +195,27 @@ void ASonicGameCharacter::AddVelocity(FVector Force)
 	GetMovementComponent()->Velocity += Force;
 }
 
+void ASonicGameCharacter::SetVelocity(FVector Velocity, bool bHorizontalOverride, bool bVerticalOverride, bool bUseAsMultiplier)
+{
+	if (bUseAsMultiplier)
+	{
+		GetCharacterMovement()->Velocity.X *= Velocity.X;
+		GetCharacterMovement()->Velocity.Y *= Velocity.Y;
+		GetCharacterMovement()->Velocity.Z *= Velocity.Z;
+	}
+	else
+	{
+		GetCharacterMovement()->Velocity.X = UKismetMathLibrary::SelectFloat(Velocity.X, Velocity.X + GetMovementComponent()->Velocity.X, bHorizontalOverride);
+		GetCharacterMovement()->Velocity.Y = UKismetMathLibrary::SelectFloat(Velocity.Y, Velocity.Y + GetMovementComponent()->Velocity.Y, bHorizontalOverride);
+		GetCharacterMovement()->Velocity.Z = UKismetMathLibrary::SelectFloat(Velocity.Z, Velocity.Z + GetMovementComponent()->Velocity.Z, bVerticalOverride);
+	}
+}
+
+FVector ASonicGameCharacter::GetRailVelocityInDirection(FVector Velocity, bool bIsBackwards)
+{
+	return UKismetMathLibrary::SelectVector(Velocity, Velocity * -1.0f, bIsBackwards);
+}
+
 void ASonicGameCharacter::Jump()
 {	
 	if (!GetMovementComponent()->IsFalling() && !bIsGrinding)
@@ -295,6 +320,231 @@ AActor* ASonicGameCharacter::GetNearestHomingTarget(float radius)
 	return closestEnemy;
 }
 
+void ASonicGameCharacter::DetectGrindRail()
+{
+	if (bIsGrinding)
+	{
+		GrindOnRail(RailStartDistance, CurrentRail);
+	}
+	else
+	{
+		FVector start = GetActorLocation() - FVector(0.0f, 0.0f, 60.0f);
+		FVector end = GetActorLocation() - FVector(0.0f, 0.0f, 61.0f);
+
+		FHitResult outHit;
+
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypesArray;
+		ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+		ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldDynamic));
+		ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_GameTraceChannel1));
+
+		TArray<AActor*> IgnoreActors;
+
+		bool traceHit = UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), start, end, 40.0f, ObjectTypesArray, false, IgnoreActors, EDrawDebugTrace::None, outHit, true);
+
+		if (traceHit)
+		{
+			AGrindRail* hitActor = Cast<AGrindRail>(outHit.GetActor());
+			if (hitActor)
+			{
+				RailCollisionPoint = hitActor->RailSpline->FindLocationClosestToWorldLocation(GetActorLocation(), ESplineCoordinateSpace::World);
+				ClosestRailPointDistance = GetClosestDistanceToLocation(hitActor->RailSpline, RailCollisionPoint, 0.5f);
+
+				FVector railTangent = hitActor->RailSpline->GetTangentAtDistanceAlongSpline(ClosestRailPointDistance, ESplineCoordinateSpace::World).GetSafeNormal();
+				float grindDirection = FVector::DotProduct(GetActorForwardVector(), railTangent);
+
+				bBackwardsGrind = grindDirection < 0.0f;
+
+				FVector railLocation = hitActor->RailSpline->GetLocationAtDistanceAlongSpline(ClosestRailPointDistance, ESplineCoordinateSpace::World) + (GetActorUpVector() * RailOffset);
+				FRotator railRotation = hitActor->RailSpline->GetRotationAtDistanceAlongSpline(ClosestRailPointDistance, ESplineCoordinateSpace::World);
+
+				SetActorLocationAndRotation(railLocation, railRotation);
+
+				RailStartDistance = ClosestRailPointDistance;
+				CurrentRail = hitActor->RailSpline;
+				bIsGrinding = true;
+
+				GetCharacterMovement()->GravityScale = 0.0f;
+
+				if (GetVelocity().Length() < hitActor->MinRailSpeed)
+				{
+					FVector minVelocity = hitActor->RailSpline->GetTangentAtDistanceAlongSpline(RailStartDistance, ESplineCoordinateSpace::World).GetSafeNormal() * hitActor->MinRailSpeed;
+					SetVelocity(GetRailVelocityInDirection(minVelocity, bBackwardsGrind), true, true, false);
+				}
+				hitActor->EnterRail(this);
+
+				GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+				Cast<USonicMovementComponent>(GetMovementComponent())->bIgnoreGrindingDecel = false;
+			}
+		}
+	}
+}
+
+void ASonicGameCharacter::DetectSideRail()
+{
+	if (bIsGrinding)
+	{
+		//Right Rail Detection
+		FVector rightStart = (GetActorLocation() - FVector(0.0f, 0.0f, 60.0f)) + (GetActorRightVector() * 60.0f);
+		FVector rightEnd = rightStart + (GetActorRightVector() * 300.0f);
+
+		//Left Rail Detection
+		FVector leftStart = (GetActorLocation() - FVector(0.0f, 0.0f, 60.0f)) + (GetActorRightVector() * -60.0f);
+		FVector leftEnd = leftStart + (GetActorRightVector() * -300.0f);
+
+		FHitResult rightOutHit;
+		FHitResult leftOutHit;
+
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypesArray;
+		ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+		ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_WorldDynamic));
+		ObjectTypesArray.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_GameTraceChannel1));
+
+		TArray<AActor*> IgnoreActors;
+
+		bool rightHit = UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), rightStart, rightEnd, 40.0f, ObjectTypesArray, false, IgnoreActors, EDrawDebugTrace::None, rightOutHit, true);
+		bool leftHit = UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), leftStart, leftEnd, 40.0f, ObjectTypesArray, false, IgnoreActors, EDrawDebugTrace::None, leftOutHit, true);
+		
+
+		if (rightHit)
+		{
+			AGrindRail* rightGrindRail = Cast<AGrindRail>(rightOutHit.GetActor());
+			if (rightGrindRail)
+			{
+				if (rightGrindRail->RailSpline != CurrentRail)
+				{
+					RightRailCollisionPoint = rightOutHit.ImpactPoint;
+					RightRail = rightGrindRail->RailSpline;
+					RightRailTargetPoint = RightRailCollisionPoint - GetVelocity();
+				}
+			}
+		}
+		else
+		{
+			RightRail = nullptr;
+		}
+
+		if (leftHit)
+		{
+			AGrindRail* leftGrindRail = Cast<AGrindRail>(leftOutHit.GetActor());
+			if (leftGrindRail)
+			{
+				if (leftGrindRail->RailSpline != CurrentRail)
+				{
+					LeftRailCollisionPoint = leftOutHit.ImpactPoint;
+					LeftRail = leftGrindRail->RailSpline;
+					LeftRailTargetPoint = LeftRailCollisionPoint - GetVelocity();
+				}
+			}
+		}
+		else
+		{
+			LeftRail = nullptr;
+		}
+	}
+	else
+	{
+		LeftRail = nullptr;
+		RightRail = nullptr;
+		bCanSwitchRails = true;
+	}
+}
+
+void ASonicGameCharacter::GrindOnRail(float StartDistance, USplineComponent* Rail)
+{
+	if (Rail)
+	{
+		AGrindRail* grindRail = Cast<AGrindRail>(Rail->GetOwner());
+		// Check if we are on the rail
+		if (StartDistance < Rail->GetSplineLength() && StartDistance > 0.0f)
+		{
+			// Jump on the rail
+			if (bGrindJump)
+			{
+				grindRail->RailJump();
+
+				FVector velocity = FVector(GetVelocity().X, GetVelocity().Y, 0.0f) * -1.0f;
+				FVector launchUp = Rail->GetUpVectorAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::World) * RailJumpHeight;
+				FVector launchVelocity = FVector(velocity.X, velocity.Y, launchUp.Z);
+				LaunchCharacter(launchVelocity, true, true);
+
+				bIsGrinding = false;
+				GetCharacterMovement()->GravityScale = 1.0f;
+			}
+			// Move along the rail
+			else
+			{
+				// Calculate rail velocity
+				FVector railVelocity = Rail->GetTangentAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::World).GetSafeNormal() * GetVelocity().Length();
+				FVector originalRailVelocity = railVelocity;
+				railVelocity = GetRailVelocityInDirection(railVelocity, bBackwardsGrind).GetClampedToSize(0.0f, MaxRailSpeed);
+
+				SetVelocity(railVelocity, true, true);
+
+				// Calculate player's location on the rail
+				FVector locationOnRail = Rail->GetLocationAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::World) + (GetActorUpVector() * RailOffset);
+				
+				// Calculate player's rotation on the rail
+				FVector railUp = Rail->GetUpVectorAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::World);
+				float railRoll = Rail->GetRollAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::World);
+				FRotator rotationOnRail = UKismetMathLibrary::MakeRotFromXZ(UKismetMathLibrary::SelectVector(originalRailVelocity * -1.0f, originalRailVelocity, bBackwardsGrind), railUp);
+				rotationOnRail.Roll = railRoll;
+
+				SetActorLocationAndRotation(locationOnRail, rotationOnRail);
+
+				// Calculate delta to increment/decrement RailStartDistance by
+				float prevVelocityDelta = (float)(GetVelocity() * GetWorld()->GetDeltaSeconds()).Length();
+				float velocityDelta = (float)(railVelocity.Length() * GetWorld()->GetDeltaSeconds());
+				float railDelta = prevVelocityDelta + velocityDelta;
+				float zRange = UKismetMathLibrary::MapRangeClamped(GetActorForwardVector().Z, -1.0f, 1.0f, 1.15f, 0.55f);
+
+				float forwardDelta = RailStartDistance + (railDelta * zRange);
+				float backwardsDelta = RailStartDistance - (railDelta * zRange);
+
+				// Update RailStartDistance
+				RailStartDistance = UKismetMathLibrary::SelectFloat(backwardsDelta, forwardDelta, bBackwardsGrind);
+			}
+		}
+		else
+		{
+			// Circle back to beginning if rail is a closed loop
+			if (Rail->IsClosedLoop())
+			{
+				RailStartDistance = UKismetMathLibrary::SelectFloat(Rail->GetSplineLength(), 0.0f, bBackwardsGrind);
+			}
+			// Exit the rail if we reach either end
+			else
+			{
+				bIsGrinding = false;
+				GetCharacterMovement()->GravityScale = 1.0f;
+				grindRail->SetActorEnableCollision(false);
+
+				FVector launchVelocity = GetActorForwardVector() * GetVelocity().Length();
+				LaunchCharacter(launchVelocity, true, true);
+
+				GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+				Cast<USonicMovementComponent>(GetMovementComponent())->bIgnoreGrindingDecel = true;
+
+				grindRail->ExitRail();
+			}
+		}
+	}
+}
+
+float ASonicGameCharacter::GetClosestDistanceToLocation(USplineComponent* Spline, FVector Location, float ErrorTolerance)
+{
+	for (int i = 0; i < (int)Spline->GetSplineLength(); i++)
+	{
+		FVector splineLocation = Spline->GetLocationAtDistanceAlongSpline(i, ESplineCoordinateSpace::World);
+		float distance = FVector::Distance(splineLocation, Location);
+		
+		if(FMath::IsNearlyEqual(distance, 0.0f, ErrorTolerance))
+			return (float)i;
+	}
+
+	return -1.0f;
+}
+
 void ASonicGameCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
 	// Set up gameplay key bindings
@@ -320,6 +570,9 @@ void ASonicGameCharacter::Tick(float DeltaTime)
 
 	UpdatePhysics(DeltaTime);
 	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f, %f, %f"), MoveInput.X, MoveInput.Y, MoveInput.Z));
+
+	DetectGrindRail();
+	DetectSideRail();
 }
 
 void ASonicGameCharacter::TurnAtRate(float Rate)
