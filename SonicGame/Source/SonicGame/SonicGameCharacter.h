@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "Components/SplineComponent.h"
 #include "Components/AudioComponent.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "SonicGameCharacter.generated.h"
 
 UCLASS(config=Game)
@@ -76,6 +77,12 @@ public:
 	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UStaticMeshComponent* JumpBallMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UParticleSystemComponent* JumpBallPS;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USceneComponent* CollisionPoint;
@@ -189,6 +196,9 @@ public:
 	USceneComponent* SparkEffectPoint;
 
 	//////////////////////////////////////////////////////////////////////
+
+	UPROPERTY(Category = "Psyloop", BlueprintReadWrite)
+	USplineComponent* PsyloopSpline;
 
 	FVector MoveInput = FVector::ZeroVector;
 

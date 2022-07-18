@@ -57,6 +57,12 @@ ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitial
 
 	SparkEffectPoint = CreateAbstractDefaultSubobject<USceneComponent>(TEXT("SparkEffectPoint"));
 	SparkEffectPoint->SetupAttachment(RootComponent);
+
+	JumpBallMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("JumpballMesh"));
+	JumpBallMesh->SetupAttachment(RootComponent);
+
+	JumpBallPS = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("JumpballPS"));
+	JumpBallPS->SetupAttachment(JumpBallMesh);
 }
 
 void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
@@ -250,6 +256,11 @@ void ASonicGameCharacter::Jump()
 
 			if (HomingSound)
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), HomingSound, GetActorLocation());
+
+			if(JumpBallMesh)
+				JumpBallMesh->SetVisibility(true, true);
+			GetMesh()->SetVisibility(false);
+			GetCapsuleComponent()->SetCapsuleHalfHeight(28.0f);
 		}
 		
 	}
@@ -486,7 +497,7 @@ void ASonicGameCharacter::GrindOnRail(float StartDistance, USplineComponent* Rai
 	{
 		AGrindRail* grindRail = Cast<AGrindRail>(Rail->GetOwner());
 		// Check if we are on the rail
-		if (StartDistance < Rail->GetSplineLength() && StartDistance > 0.0f)
+		if (StartDistance <= Rail->GetSplineLength() && StartDistance > 0.0f)
 		{
 			// Jump on the rail
 			if (bGrindJump)
