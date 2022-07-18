@@ -35,6 +35,7 @@ public:
 
 	void SetVelocity(FVector Velocity, bool bHorizontalOverride, bool bVerticalOverride, bool bUseAsMultiplier = false);
 
+	UFUNCTION(BlueprintCallable)
 	FVector GetRailVelocityInDirection(FVector Velocity, bool bIsBackwards);
 
 	void Jump();
@@ -52,6 +53,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void DetectSideRail();
+
+	UFUNCTION(BlueprintCallable)
+	void RailBoost(FVector Direction);
 
 	void GrindOnRail(float StartDistance, USplineComponent* Rail);
 

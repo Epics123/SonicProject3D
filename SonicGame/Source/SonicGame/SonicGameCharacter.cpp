@@ -450,6 +450,36 @@ void ASonicGameCharacter::DetectSideRail()
 	}
 }
 
+void ASonicGameCharacter::RailBoost(FVector Direction)
+{
+	if (CurrentRail)
+	{
+		MaxRailSpeed = 3000.0f;
+		FVector newVelocity = Direction * MaxRailSpeed;
+
+		// Check if we are moving in the opposite direction of the boost vector
+		if (Direction.Dot(GetActorForwardVector()) < 0.0f)
+		{
+			bBackwardsGrind = !bBackwardsGrind;
+			SetVelocity(GetRailVelocityInDirection(newVelocity, bBackwardsGrind), true, true);
+		}
+		else
+		{
+			SetVelocity(newVelocity, true, true);
+		}
+
+		FTimerDelegate timerDelegate;
+		timerDelegate.BindLambda([&]()
+			{
+				MaxRailSpeed = 2000.0f;
+			});
+
+		FTimerHandle delayHandle;
+
+		GetWorld()->GetTimerManager().SetTimer(delayHandle, timerDelegate, 2.0f, false);
+	}
+}
+
 void ASonicGameCharacter::GrindOnRail(float StartDistance, USplineComponent* Rail)
 {
 	if (Rail)
