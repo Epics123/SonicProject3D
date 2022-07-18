@@ -162,6 +162,9 @@ public:
 	float RailOffset = 70.0f;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
+	float RailAccelerationMultiplier = 5.0f;
+
+	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)
 	float RailStartDistance;
 
 	UPROPERTY(Category = "Rail Grinding", EditAnywhere, BlueprintReadWrite)

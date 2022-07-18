@@ -509,6 +509,12 @@ void ASonicGameCharacter::GrindOnRail(float StartDistance, USplineComponent* Rai
 				FVector originalRailVelocity = railVelocity;
 				railVelocity = GetRailVelocityInDirection(railVelocity, bBackwardsGrind).GetClampedToSize(0.0f, MaxRailSpeed);
 
+				// Add friction based on angle of the rail
+				railVelocity += (GetActorForwardVector() * RailAccelerationMultiplier * GetWorld()->GetDeltaSeconds()) * GetActorRotation().Pitch;
+				if(railVelocity.Length() < 1.0f)
+					bBackwardsGrind = !bBackwardsGrind;
+
+
 				SetVelocity(railVelocity, true, true);
 
 				// Calculate player's location on the rail
