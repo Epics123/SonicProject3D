@@ -22,7 +22,7 @@ class ASonicGameCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
 public:
-	ASonicGameCharacter(const FObjectInitializer& ObjectInitializer);
+	ASonicGameCharacter();
 
 	void UpdatePhysics(float DeltaTime);
 
@@ -92,6 +92,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USoundBase* JumpSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* PsyloopPoint;
 
 	UPROPERTY(Category = "Sonic Character Movement", EditAnywhere, BlueprintReadWrite)
 	uint32 bUseCharacterVectors : 1;

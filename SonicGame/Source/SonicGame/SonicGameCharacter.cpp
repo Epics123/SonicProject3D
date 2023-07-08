@@ -22,10 +22,8 @@
 //////////////////////////////////////////////////////////////////////////
 // ASonicGameCharacter
 
-ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer.SetDefaultSubobjectClass<USonicMovementComponent>(ACharacter::CharacterMovementComponentName))
+ASonicGameCharacter::ASonicGameCharacter()
 {
-
 	// set our turn rates for input
 	BaseTurnRate = 45.f;
 	BaseLookUpRate = 45.f;
@@ -55,7 +53,7 @@ ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitial
 	SoundEffectComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("SoundEffectComponent"));
 	SoundEffectComponent->SetupAttachment(RootComponent);
 
-	SparkEffectPoint = CreateAbstractDefaultSubobject<USceneComponent>(TEXT("SparkEffectPoint"));
+	SparkEffectPoint = CreateDefaultSubobject<USceneComponent>(TEXT("SparkEffectPoint"));
 	SparkEffectPoint->SetupAttachment(RootComponent);
 
 	JumpBallMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("JumpballMesh"));
@@ -63,6 +61,9 @@ ASonicGameCharacter::ASonicGameCharacter(const FObjectInitializer& ObjectInitial
 
 	JumpBallPS = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("JumpballPS"));
 	JumpBallPS->SetupAttachment(JumpBallMesh);
+
+	PsyloopPoint = CreateDefaultSubobject<USceneComponent>(TEXT("PsyloopPoint"));
+	PsyloopPoint->SetupAttachment(RootComponent);
 }
 
 void ASonicGameCharacter::UpdatePhysics(float DeltaTime)
@@ -615,7 +616,7 @@ void ASonicGameCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	UpdatePhysics(DeltaTime);
+	//UpdatePhysics(DeltaTime);
 	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("%f, %f, %f"), MoveInput.X, MoveInput.Y, MoveInput.Z));
 
 	DetectGrindRail();
@@ -652,7 +653,7 @@ void ASonicGameCharacter::MoveForward(float Value)
 
 void ASonicGameCharacter::MoveRight(float Value)
 {
-	if ( (Controller != nullptr) && (Value != 0.0f) && bCanMove && !bIsGrinding && (GetCharacterMovement()->MovementMode != MOVE_Flying))
+	if ( (Controller != nullptr) && (Value != 0.0f) && bCanMove && !bIsGrinding)
 	{
 		const FVector Up = GetActorQuat().GetAxisZ(); // player's current up vector
 		FVector SideVector;
