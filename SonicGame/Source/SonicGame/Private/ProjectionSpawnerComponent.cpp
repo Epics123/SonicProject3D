@@ -23,6 +23,18 @@ void UProjectionSpawnerComponent::SpawnProjectionInCircle(TSubclassOf<AActor> Ac
 	GetWorld()->GetTimerManager().SetTimer(SpawnTimerHandle, SpawnTimerDelegate, 0.01f, true);
 }
 
+void UProjectionSpawnerComponent::ClearAllActiveProjections()
+{
+	for(AProjectionActorBase* Projection : ActiveProjections)
+	{
+		if(Projection)
+		{
+			Projection->Destroy();
+		}
+	}
+	ActiveProjections.Empty();
+}
+
 void UProjectionSpawnerComponent::SpawnProjection(int32 NumProjections, TSubclassOf<AActor> ActorToSpawn, float Distance, const float AdditionalRotationAngle)
 {
 	if(NumProjectionsSpawned > NumProjections)
@@ -33,25 +45,32 @@ void UProjectionSpawnerComponent::SpawnProjection(int32 NumProjections, TSubclas
 	}
 	else
 	{
-		if(NumProjectionsSpawned >= NumProjections / 2)
+		
+		USkeletalMeshComponent* SkeletalMesh = GetOwner()->FindComponentByClass<USkeletalMeshComponent>();
+		if(SkeletalMesh)
 		{
-			Distance *= 2;
+			if (NumProjectionsSpawned >= NumProjections / 2)
+			{
+				Distance *= 2;
+			}
+
+			FTransform Transform = FTransform(GetComponentRotation(), GetComponentLocation(), GetOwner()->GetActorScale3D());
+			FVector TargetLocation = CalculateProjectionTargetLocation(StartingDirection, Distance);
+
+			SpawnDeferredProjection(ActorToSpawn, Transform, TargetLocation);
+			NumProjectionsSpawned++;
+			StartingDirection = StartingDirection.RotateAngleAxis(AdditionalRotationAngle, RotationAxis);
 		}
-
-		FTransform Transform = FTransform(GetComponentRotation(), GetComponentLocation(), GetOwner()->GetActorScale3D());
-		FVector TargetLocation = CalculateProjectionTargetLocation(StartingDirection, Distance);
-
-		SpawnDeferredProjection(ActorToSpawn, Transform, TargetLocation);
-		NumProjectionsSpawned++;
-		StartingDirection = StartingDirection.RotateAngleAxis(AdditionalRotationAngle, GetOwner()->GetActorForwardVector());
 	}
 }
 
 void UProjectionSpawnerComponent::SpawnDeferredProjection(TSubclassOf<AActor> ActorToSpawn, const FTransform& Transform, const FVector TargetLocation)
 {
 	AProjectionActorBase* SpawnedProjection = Cast<AProjectionActorBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(GetWorld(), ActorToSpawn, Transform));
-	SpawnedProjection->TargetLocation = TargetLocation;
+	SpawnedProjection->StartLocation = TargetLocation;
 	UGameplayStatics::FinishSpawningActor(SpawnedProjection, Transform);
+	SpawnedProjection->TargetDirection = RotationAxis;
+	ActiveProjections.Add(SpawnedProjection);
 }
 
 // Called when the game starts

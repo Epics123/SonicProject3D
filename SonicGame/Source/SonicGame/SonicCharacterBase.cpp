@@ -65,11 +65,10 @@ void ASonicCharacterBase::MoveForward(float Value)
 		FVector Direction = FVector(0.0f);
 		if(GetCapsuleComponent())
 		{
-			FVector CapsuleDirection = FRotationMatrix(GetCapsuleComponent()->GetComponentRotation()).GetScaledAxis(EAxis::Z);
-			FVector ForwardDirection = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::Y);
+			FVector RightVector = FRotationMatrix(GetControlRotation()).GetScaledAxis(EAxis::Y);
+			FVector UpVector = FRotationMatrix(GetCapsuleComponent()->GetComponentRotation()).GetScaledAxis(EAxis::Z);
 
-
-			Direction = FVector::CrossProduct(ForwardDirection, CapsuleDirection);
+			Direction = FVector::CrossProduct(RightVector, UpVector);
 			Direction.Normalize();
 		}
 		

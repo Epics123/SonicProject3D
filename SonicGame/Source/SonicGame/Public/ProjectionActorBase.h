@@ -17,10 +17,28 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector TargetLocation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector TargetDirection;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector StartLocation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bCanMove = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float InterpSpeed = 5.f;
 	
 public:	
 	// Sets default values for this actor's properties
 	AProjectionActorBase();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void MoveToTargetLocation();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SetTargetDirectionFromDistance(float Distance);
 
 protected:
 	// Called when the game starts or when spawned

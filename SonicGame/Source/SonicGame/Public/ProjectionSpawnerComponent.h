@@ -22,6 +22,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector StartingDirection;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector RotationAxis;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<class AProjectionActorBase*> ActiveProjections;
+
 	int32 NumProjectionsSpawned = 0;
 
 	FTimerHandle SpawnTimerHandle;
@@ -31,12 +37,14 @@ public:
 	// Sets default values for this component's properties
 	UProjectionSpawnerComponent();
 
-
 	UFUNCTION(BlueprintCallable)
 	void SpawnProjectionInCircle(TSubclassOf<AActor> ActorToSpawn, int32 NumProjections, float Distance, const float RotationAngle);
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void SpawnSpecialAttackFinisherProjections();
+
+	UFUNCTION(BlueprintCallable)
+	void ClearAllActiveProjections();
 
 	UFUNCTION()
 	void SpawnProjection(int32 NumProjections, TSubclassOf<AActor> ActorToSpawn, float Distance, const float AdditionalRotationAngle = 0.0f);
